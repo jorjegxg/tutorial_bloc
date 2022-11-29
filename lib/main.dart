@@ -1,14 +1,13 @@
 // TODO : invata prima oara despre stream - uri
 // https://medium.com/flutter-community/flutter-stream-basics-for-beginners-eda23e44e32f
 
-import 'dart:developer';
-import 'dart:math' as math show Random;
-
 // TODO : invata despre bloc
 // https://bloclibrary.dev/#/coreconcepts?id=using-a-cubit
 // https://www.youtube.com/watch?v=Mn254cnduOY
 
-import 'package:bloc/bloc.dart';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 void main() {
@@ -20,79 +19,79 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: HomePage(),
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      debugShowCheckedModeBanner: false,
+      home: const HomePage(),
     );
   }
 }
 
-const names = ['unu', 'doi', 'trei', 'patru', 'cinci', 'sase', 'sapte', 'opt', 'noua', 'zece'];
-
-extension RandomElement<T> on Iterable<T> {
-  T getRandomElement() => elementAt(math.Random().nextInt(length));
+@immutable
+abstract class LoadAction {
+  const LoadAction();
 }
 
-class NamesCubit extends Cubit<String?> {
-  NamesCubit() : super(null);
+@immutable
+class LoadPersonsAction implements LoadAction {
+  final PersonUrl url;
 
-  void pickRandomName() {
-    log(state.toString());
-    emit(names.getRandomElement());
+  const LoadPersonsAction({
+    required this.url,
+  }) : super();
+}
+
+enum PersonUrl {
+  persons1,
+  persons2,
+}
+
+extension UrlString on PersonUrl {
+  String get urlString {
+    switch (this) {
+      case PersonUrl.persons1:
+        return 'http://127.0.0.1:5500/api/persons1.json';
+      case PersonUrl.persons2:
+        return 'http://127.0.0.1:5500/api/persons2.json';
+    }
   }
 }
 
-class HomePage extends StatefulWidget {
+@immutable
+class Person {
+  final String name;
+  final int age;
+
+  const Person({
+    required this.name,
+    required this.age,
+  });
+
+  Person.fromJson(Map<String, dynamic> json)
+      : name = json['name'] as String,
+        age = json['age'] as int;
+}
+
+Future<Iterable<Person>> getPersons(String url) {
+  return HttpClient()
+      .getUrl(Uri.parse(url))
+      .then((req) => req.close())
+      .then((resp) => resp.transform(utf8.decoder).join())
+      .then((str) => json.decode(str) as List<dynamic>)
+      .then((list) => list.map((e) => Person.fromJson(e)));
+}
+
+class HomePage extends StatelessWidget {
   const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  late final NamesCubit cubit;
-
-  @override
-  void initState() {
-    super.initState();
-    cubit = NamesCubit();
-  }
-
-  @override
-  void dispose() {
-    cubit.close();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Invat bloc fha'),
-      ),
-      body: StreamBuilder<String?>(
-        stream: cubit.stream,
-        builder: (BuildContext context, AsyncSnapshot snapshot) {
-          final button = TextButton(
-            onPressed: () => cubit.pickRandomName(),
-            child: const Text('Pick random name'),
-          );
-
-          switch (snapshot.connectionState) {
-            case ConnectionState.none:
-              return button;
-            case ConnectionState.waiting:
-              return button;
-            case ConnectionState.done:
-              return const SizedBox();
-            case ConnectionState.active:
-              return Column(
-                children: [
-                  Text(snapshot.data ?? ' '),
-                  button,
-                ],
-              );
-          }
-        },
+        title: const Text('Titlu pagina'),
       ),
     );
   }
